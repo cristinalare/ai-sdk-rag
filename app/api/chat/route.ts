@@ -1,6 +1,6 @@
 import { createResource } from "@/lib/actions/resources";
 import { openai } from "@ai-sdk/openai";
-import { convertToModelMessages, streamText, tool, UIMessage } from "ai";
+import { convertToModelMessages, stepCountIs, streamText, tool, UIMessage } from "ai";
 import z from "zod";
 
 // Allow streaming responses up to 30 seconds
@@ -15,6 +15,7 @@ export async function POST(req: Request) {
     Only respond to questions using information from tool calls.
     if no relevant information is found in the tool calls, respond, "Sorry, I don't know."`,
     messages: convertToModelMessages(messages),
+    stopWhen: stepCountIs(5),
     tools: {
       web_search_preview: openai.tools.webSearchPreview({}),
       addResource: tool({
