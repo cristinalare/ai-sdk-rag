@@ -33,18 +33,25 @@ export const generateEmbedding = async (value: string): Promise<number[]> => {
   return embedding;
 };
 
+function normalizeVector(vec: number[]) {
+  const norm = Math.sqrt(vec.reduce((sum, x) => sum + x * x, 0));
+  return vec.map((x) => x / norm);
+}
+
 export const findRelevantContent = async (userQuery: string) => {
   const userQueryEmbedded = await generateEmbedding(userQuery);
-  const similarity = sql<number>`1 - (${cosineDistance(
-    embeddings.embedding,
-    userQueryEmbedded
-  )})`;
-  
+  const normalized = normalizeVector(userQueryEmbedded);
+
+  const vectorLiteral = `array[${normalized.join(",")}]::vector`;
+
   const similarGuides = await db
-    .select({ name: embeddings.content, similarity })
+    .select({
+      name: embeddings.content,
+      similarity: sql<number>`1 - (embedding <=> ${sql.raw(vectorLiteral)})`,
+    })
     .from(embeddings)
-    .where(gt(similarity, 0.5))
-    .orderBy((t) => desc(t.similarity))
+    .orderBy(sql`embedding <=> ${sql.raw(vectorLiteral)}`)
     .limit(4);
+
   return similarGuides;
 };
